@@ -37,5 +37,5 @@ The controller uses the [controller-runtime](https://github.com/kubernetes-sigs/
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/yourorg/namespace-cleaner.git
+git clone https://github.com/bryanpaget/namespace-cleaner.git
 cd namespace-cleaner
