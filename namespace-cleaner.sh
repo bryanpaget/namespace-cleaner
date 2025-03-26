@@ -1,171 +1,210 @@
 #!/bin/sh
-set -eu
+# Kubernetes Namespace Cleaner
+# Automatically manages namespace lifecycle based on Azure Entra ID user status
+# Author: Your Name
+# Version: 1.0.0
 
-# Environment defaults
+set -eu  # Enable strict error handling
+
+# ---------------------------
+# Environment Configuration
+# ---------------------------
+# TEST_MODE: When true, uses mock data from ConfigMaps instead of real Azure checks
+# DRY_RUN: When true, shows actions without making cluster changes
 TEST_MODE=${TEST_MODE:-false}
 DRY_RUN=${DRY_RUN:-false}
-CONFIG_FILE="./cleaner-config.env"
 
-# Dependency checks
+# ---------------------------
+# Dependency Verification
+# ---------------------------
 check_dependencies() {
-  for cmd in kubectl date cut tr grep; do
-    if ! command -v $cmd >/dev/null; then
-      echo "Error: Missing required command '$cmd'"
-      exit 1
-    fi
-  done
+    # Verify availability of required system commands
+    # Critical dependencies for basic functionality
+    required_cmds="kubectl date cut tr grep"
 
-  if [ "$TEST_MODE" = "false" ] && ! command -v az >/dev/null; then
-    echo "Error: Azure CLI (az) required in production mode"
-    exit 1
-  fi
+    # Azure CLI is only required in production mode
+    if [ "$TEST_MODE" = "false" ]; then
+        required_cmds="$required_cmds az"
+    fi
+
+    for cmd in $required_cmds; do
+        if ! command -v "$cmd" >/dev/null; then
+            echo "Error: Missing required command '$cmd'"
+            exit 1
+        fi
+    done
 }
 
-check_dependencies
-
-# Configuration loading
+# ---------------------------
+# Configuration Management
+# ---------------------------
 load_config() {
-  if [ "$TEST_MODE" = "true" ]; then
-    echo "TEST MODE: Loading test configuration"
+    # Load configuration from appropriate source based on mode
+    if [ "$TEST_MODE" = "true" ]; then
+        echo "TEST MODE: Initializing from Kubernetes ConfigMaps"
 
-    # Test config validation
-    if ! kubectl get configmap namespace-cleaner-config >/dev/null; then
-      echo "Error: Missing test ConfigMap namespace-cleaner-config"
-      exit 1
-    fi
+        # Validate test configuration resources
+        for cm in namespace-cleaner-config namespace-cleaner-test-users; do
+            if ! kubectl get configmap $cm >/dev/null; then
+                echo "Error: Missing required test ConfigMap '$cm'"
+                exit 1
+            fi
+        done
 
-    kubectl get configmap namespace-cleaner-config -o jsonpath='{.data.config\.env}' > "$CONFIG_FILE"
-    . "$CONFIG_FILE"
+        # Load configuration directly into environment
+        eval "$(kubectl get configmap namespace-cleaner-config -o jsonpath='{.data.config\.env}')"
 
-    # Test users validation
-    if ! kubectl get configmap namespace-cleaner-test-users >/dev/null; then
-      echo "Error: Missing test ConfigMap namespace-cleaner-test-users"
-      exit 1
-    fi
-    TEST_USERS=$(kubectl get configmap namespace-cleaner-test-users -o jsonpath='{.data.users}' | tr ',' '\n')
+        # Validate essential configuration parameters
+        if [ -z "${ALLOWED_DOMAINS:-}" ] || [ -z "${GRACE_PERIOD:-}" ]; then
+            echo "Error: Invalid test configuration - verify ConfigMap contents"
+            exit 1
+        fi
 
-  else
-    echo "PRODUCTION MODE: Using cluster configuration"
-
-    # Production config validation
-    if [ ! -f "/etc/cleaner-config/config.env" ]; then
-      echo "Error: Missing production config at /etc/cleaner-config/config.env"
-      exit 1
-    fi
-    . /etc/cleaner-config/config.env
-
-    # Azure authentication
-    if [ "$DRY_RUN" = "false" ]; then  # Only login if not dry-run
-      if ! az login --service-principal \
-        -u "$AZURE_CLIENT_ID" \
-        -p "$AZURE_CLIENT_SECRET" \
-        --tenant "$AZURE_TENANT_ID" > /dev/null; then
-        echo "Error: Azure login failed"
-        exit 1
-      fi
+        # Load mock user data for testing
+        TEST_USERS=$(kubectl get configmap namespace-cleaner-test-users -o jsonpath='{.data.users}' | tr ',' '\n')
     else
-      echo "DRY RUN: Skipping Azure login"
+        echo "PRODUCTION MODE: Loading cluster configuration"
+
+        # Production configuration file validation
+        if [ ! -f "/etc/cleaner-config/config.env" ]; then
+            echo "Error: Production configuration file not found at /etc/cleaner-config/config.env"
+            exit 1
+        fi
+
+        # Source production environment variables
+        . /etc/cleaner-config/config.env
+
+        # Validate production configuration
+        if [ -z "${ALLOWED_DOMAINS:-}" ] || [ -z "${GRACE_PERIOD:-}" ]; then
+            echo "Error: Invalid production configuration - check config.env"
+            exit 1
+        fi
+
+        # Azure authentication (skip in dry-run mode)
+        if [ "$DRY_RUN" = "false" ]; then
+            if ! az login --service-principal \
+                -u "$AZURE_CLIENT_ID" \
+                -p "$AZURE_CLIENT_SECRET" \
+                --tenant "$AZURE_TENANT_ID" >/dev/null; then
+                echo "Error: Azure authentication failed - verify credentials in secret.yaml"
+                exit 1
+            fi
+        fi
     fi
-
-  fi
-
-  # Validate loaded configuration
-  if [ -z "${ALLOWED_DOMAINS:-}" ]; then
-    echo "Error: ALLOWED_DOMAINS not configured"
-    exit 1
-  fi
 }
 
-load_config
+# ---------------------------
+# Core Functions
+# ---------------------------
 
-# Core functions
+# Determine if a user exists in Azure Entra ID or test dataset
+# @param $1: User email address to check
+# @return: 0 if user exists, 1 otherwise
 user_exists() {
-  local user="$1"
+    local user="$1"
 
-  if [ "$TEST_MODE" = "true" ]; then
-    # Test mode: Check against mock users
-    echo "$TEST_USERS" | grep -qFx "$user"
-  else
-    # Production/Dry-run: Real Azure check
-    if [ "$DRY_RUN" = "true" ]; then
-      echo "[DRY RUN] Checking Azure for user: $user"
-    fi
-    az ad user show --id "$user" >/dev/null 2>&1
-  fi
-}
-valid_domain() {
-  local email="$1"
-  local domain=$(echo "$email" | cut -d@ -f2)
-
-  case ",${ALLOWED_DOMAINS}," in
-    *",${domain},"*) return 0 ;;
-    *) return 1 ;;
-  esac
-}
-
-kubectl_dryrun() {
-  if [ "$DRY_RUN" = "true" ]; then
-    echo "[DRY RUN] Would execute: kubectl $@"
-  else
-    kubectl "$@"
-  fi
-}
-
-# Date calculations using epoch seconds for portability
-get_grace_period() {
-  grace_days=$(echo "$GRACE_PERIOD" | grep -oE '^[0-9]+')
-  if [ -z "$grace_days" ]; then
-    echo "Invalid GRACE_PERIOD format: $GRACE_PERIOD"
-    exit 1
-  fi
-
-  grace_seconds=$((grace_days * 86400))
-  current_epoch=$(date +%s)
-  date -u -d "@$((current_epoch + grace_seconds))" "+%Y-%m-%d"
-}
-
-# Main processing
-process_namespaces() {
-  # Phase 1: New namespaces
-  delete_date=$(get_grace_period)
-
-  kubectl get ns -l 'app.kubernetes.io/part-of=kubeflow-profile,!namespace-cleaner/delete-at' \
-    -o jsonpath='{.items[*].metadata.name}' | tr ' ' '\n' | while read ns; do
-
-    owner_email=$(kubectl get ns "$ns" -o jsonpath='{.metadata.annotations.owner}')
-
-    if valid_domain "$owner_email"; then
-      if ! user_exists "$owner_email"; then
-        echo "Marking $ns for deletion on $delete_date"
-        kubectl_dryrun label ns "$ns" "namespace-cleaner/delete-at=$delete_date"
-      fi
+    if [ "$TEST_MODE" = "true" ]; then
+        # Check against mock user list from ConfigMap
+        echo "$TEST_USERS" | grep -qFx "$user"
     else
-      echo "Invalid domain in $ns: $owner_email"
+        if [ "$DRY_RUN" = "true" ]; then
+            # Simulate user check in dry-run mode
+            echo "[DRY RUN] Would check Azure for user: $user"
+            return 0  # Assume user exists for safe dry-run
+        else
+            # Real Azure Entra ID check
+            az ad user show --id "$user" >/dev/null 2>&1
+        fi
     fi
-  done
-
-  # Phase 2: Expired namespaces
-  today=$(date -u +%Y-%m-%d)
-
-  kubectl get ns -l 'namespace-cleaner/delete-at' \
-    -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.metadata.labels.namespace-cleaner/delete-at}{"\n"}{end}' \
-    | while read line; do
-
-    ns=$(echo "$line" | cut -f1)
-    label_date=$(echo "$line" | cut -f2 | cut -d'T' -f1)
-
-    if [ "$today" \> "$label_date" ]; then
-      owner_email=$(kubectl get ns "$ns" -o jsonpath='{.metadata.annotations.owner}')
-
-      if ! user_exists "$owner_email"; then
-        echo "Deleting expired namespace: $ns"
-        kubectl_dryrun delete ns "$ns"
-      else
-        echo "User restored, removing label from $ns"
-        kubectl_dryrun label ns "$ns" 'namespace-cleaner/delete-at-'
-      fi
-    fi
-  done
 }
 
+# Validate if an email domain is in the allowlist
+# @param $1: Email address to validate
+# @return: 0 if domain is allowed, 1 otherwise
+valid_domain() {
+    local email="$1"
+    local domain=$(echo "$email" | cut -d@ -f2)
+
+    # Use pattern matching with comma-separated allowlist
+    case ",${ALLOWED_DOMAINS}," in
+        *",${domain},"*) return 0 ;;  # Domain found in allowlist
+        *) return 1 ;;                # Domain not allowed
+    esac
+}
+
+# Execute kubectl commands with dry-run support
+# @param $@: Full kubectl command with arguments
+kubectl_dryrun() {
+    if [ "$DRY_RUN" = "true" ]; then
+        echo "[DRY RUN] Would execute: kubectl $@"
+    else
+        kubectl "$@"
+    fi
+}
+
+# Calculate deletion date based on grace period
+# @return: Date in YYYY-MM-DD format
+get_grace_date() {
+    # Extract numeric days from GRACE_PERIOD (e.g., "7d" -> 7)
+    grace_days=$(echo "$GRACE_PERIOD" | grep -oE '^[0-9]+')
+    [ -n "$grace_days" ] || { echo "Invalid GRACE_PERIOD: $GRACE_PERIOD"; exit 1; }
+
+    # Calculate future date using native date utility
+    date -u -d "now + $grace_days days" "+%Y-%m-%d"
+}
+
+# ---------------------------
+# Namespace Processing
+# ---------------------------
+process_namespaces() {
+    # Phase 1: Identify new namespaces needing evaluation
+    local grace_date=$(get_grace_date)
+
+    # Find namespaces with Kubeflow label but no deletion marker
+    kubectl get ns -l 'app.kubernetes.io/part-of=kubeflow-profile,!namespace-cleaner/delete-at' \
+        -o jsonpath='{.items[*].metadata.name}' | tr ' ' '\n' | while read -r ns; do
+
+        owner_email=$(kubectl get ns "$ns" -o jsonpath='{.metadata.annotations.owner}')
+
+        if valid_domain "$owner_email"; then
+            if ! user_exists "$owner_email"; then
+                echo "Marking $ns for deletion on $grace_date"
+                kubectl_dryrun label ns "$ns" "namespace-cleaner/delete-at=$grace_date"
+            fi
+        else
+            echo "Invalid domain in $ns: $owner_email (allowed: ${ALLOWED_DOMAINS})"
+        fi
+    done
+
+    # Phase 2: Process namespaces with expired deletion markers
+    local today=$(date -u +%Y-%m-%d)
+
+    # Retrieve namespaces with deletion markers
+    kubectl get ns -l 'namespace-cleaner/delete-at' \
+        -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.metadata.labels.namespace-cleaner/delete-at}{"\n"}{end}' \
+        | while read -r line; do
+
+        ns=$(echo "$line" | cut -f1)
+        label_date=$(echo "$line" | cut -f2 | cut -d'T' -f1)  # Handle ISO timestamp
+
+        # Compare dates using string comparison (works for YYYY-MM-DD format)
+        if [ "$today" \> "$label_date" ]; then
+            owner_email=$(kubectl get ns "$ns" -o jsonpath='{.metadata.annotations.owner}')
+
+            if ! user_exists "$owner_email"; then
+                echo "Deleting expired namespace: $ns"
+                kubectl_dryrun delete ns "$ns"
+            else
+                echo "User restored, removing deletion marker from $ns"
+                kubectl_dryrun label ns "$ns" 'namespace-cleaner/delete-at-'
+            fi
+        fi
+    done
+}
+
+# ---------------------------
+# Main Execution Flow
+# ---------------------------
+check_dependencies
+load_config
 process_namespaces
