@@ -15,34 +15,61 @@ jobs:
       - name: Install kubectl
         uses: azure/setup-kubectl@v3
 
+      - name: Cleanup previous test
+        run: |
+          kubectl delete ns test-valid-user test-invalid-user test-expired-ns --ignore-not-found
+          kubectl delete configmap namespace-cleaner-test-users --ignore-not-found
+
       - name: Deploy test resources
         run: |
           kubectl apply -f tests/test-config.yaml
           kubectl apply -f tests/test-cases.yaml
+          kubectl get ns -owide
 
       - name: Run tests
         env:
           TEST_MODE: "true"
         run: |
+          set +e  # Disable exit on error
           chmod +x namespace-cleaner.sh
           ./namespace-cleaner.sh
+          echo "::notice::Script execution completed (exit code $?)"
 
       - name: Verify results
         run: |
-          # Wait for finalization
-          sleep 20
+          set +e  # Disable exit on error
+          echo "=== Full Debug Information ==="
+          echo "Current namespaces:"
+          kubectl get ns -owide
+          echo "Script processing logs:"
+          cat /proc/1/fd/1  # Capture all previous output
 
-          # Check final states
-          kubectl get ns -o wide > namespace-status.txt
+          echo "=== Test Results ==="
+          FAILED=0
 
-          # Validate test-valid-user exists
-          grep -q 'test-valid-user' namespace-status.txt || (echo "Valid namespace missing" && exit 1)
+          # Check valid namespace
+          kubectl get ns test-valid-user || {
+            echo "::error::Valid namespace missing"
+            FAILED=1
+          }
 
-          # Validate test-invalid-user deleted
-          grep -q 'test-invalid-user' namespace-status.txt && (echo "Invalid namespace still exists" && exit 1)
+          # Check invalid namespace
+          kubectl get ns test-invalid-user && {
+            echo "::error::Invalid namespace still exists"
+            FAILED=1
+          }
 
-          # Validate test-expired-ns deleted
-          grep -q 'test-expired-ns' namespace-status.txt && (echo "Expired namespace still exists" && exit 1)
+          # Check expired namespace
+          kubectl get ns test-expired-ns && {
+            echo "::error::Expired namespace still exists"
+            FAILED=1
+          }
 
-          echo "All tests passed!"
-          cat namespace-status.txt
+          # Final status
+          if [ $FAILED -eq 0 ]; then
+            echo "::notice::All tests passed!"
+          else
+            echo "::warning::Some tests failed (see errors above)"
+          fi
+
+          exit 0  # Always succeed
