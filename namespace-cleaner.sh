@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 set -euo pipefail  # Fail on errors and unset vars
 
 # Modified configuration loading

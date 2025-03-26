@@ -23,10 +23,15 @@ spec:
                   subPath: namespace-cleaner.sh
                 - name: config
                   mountPath: /etc/cleaner-config
+              resources:
+                limits:
+                  memory: "256Mi"
+                  cpu: "500m"
           volumes:
             - name: script
               configMap:
                 name: namespace-cleaner-script
+                defaultMode: 0744 # Makes script executable
             - name: config
               configMap:
                 name: namespace-cleaner-config
