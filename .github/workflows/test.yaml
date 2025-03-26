@@ -15,11 +15,6 @@ jobs:
       - name: Install kubectl
         uses: azure/setup-kubectl@v3
 
-      - name: Cleanup previous test
-        run: |
-          kubectl delete ns test-valid-user test-invalid-user test-expired-ns --ignore-not-found
-          kubectl delete configmap namespace-cleaner-test-users --ignore-not-found
-
       - name: Deploy test resources
         run: |
           kubectl apply -f tests/test-config.yaml
