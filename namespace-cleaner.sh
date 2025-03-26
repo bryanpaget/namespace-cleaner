@@ -3,26 +3,39 @@
 # Modified configuration loading
 CONFIG_FILE="./cleaner-config.env"
 
-# Load configuration from cluster or local file
 if [ "$TEST_MODE" = "true" ]; then
-  echo "TEST_MODE: Loading config from ConfigMap"
-  kubectl get configmap namespace-cleaner-config -o jsonpath='{.data.config\.env}' > $CONFIG_FILE
-  source $CONFIG_FILE
-else
-  # Production config (original path)
-  source /etc/cleaner-config/config.env
-fi
+  echo "TEST_MODE: Loading config and test users from ConfigMaps"
 
-# Testing mode setup
-if [ "$TEST_MODE" = "true" ]; then
-  echo "Running in TEST_MODE - using ConfigMap test users"
+  # Load configuration
+  kubectl get configmap namespace-cleaner-config -o jsonpath='{.data.config\.env}' > "$CONFIG_FILE"
+  if ! source "$CONFIG_FILE"; then
+    echo "Error: Failed to load configuration"
+    exit 1
+  fi
+
+  # Load test users
   TEST_USERS=$(kubectl get configmap namespace-cleaner-test-users -o jsonpath='{.data.users}' | tr ',' '\n')
+  if [ -z "$TEST_USERS" ]; then
+    echo "Error: No test users found in namespace-cleaner-test-users ConfigMap"
+    exit 1
+  fi
+
 else
-  # Production Azure login
-  az login --service-principal \
-    -u $AZURE_CLIENT_ID \
-    -p $AZURE_CLIENT_SECRET \
-    --tenant $AZURE_TENANT_ID
+  # Production configuration
+  if [ ! -f "/etc/cleaner-config/config.env" ]; then
+    echo "Error: Missing production configuration at /etc/cleaner-config/config.env"
+    exit 1
+  fi
+  source /etc/cleaner-config/config.env
+
+  # Azure login validation
+  if ! az login --service-principal \
+    -u "$AZURE_CLIENT_ID" \
+    -p "$AZURE_CLIENT_SECRET" \
+    --tenant "$AZURE_TENANT_ID" > /dev/null; then
+    echo "Error: Azure login failed"
+    exit 1
+  fi
 fi
 
 # User existence check
