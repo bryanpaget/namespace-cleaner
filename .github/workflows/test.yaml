@@ -34,46 +34,20 @@ jobs:
 
       - name: Verify results
         run: |
-          # Function to check namespace existence with retries
-          check_namespace() {
-            local ns=$1
-            local should_exist=$2
-            local attempts=0
-            local max_attempts=5
+          # Wait for finalization
+          sleep 20
 
-            while [ $attempts -lt $max_attempts ]; do
-              exists=$(kubectl get ns $ns -o name 2>/dev/null | wc -l)
+          # Check final states
+          kubectl get ns -o wide > namespace-status.txt
 
-              if [ $should_exist = true ] && [ $exists -eq 1 ]; then
-                return 0
-              elif [ $should_exist = false ] && [ $exists -eq 0 ]; then
-                return 0
-              fi
+          # Validate test-valid-user exists
+          grep -q 'test-valid-user' namespace-status.txt || (echo "Valid namespace missing" && exit 1)
 
-              sleep 5
-              attempts=$((attempts+1))
-            done
+          # Validate test-invalid-user deleted
+          grep -q 'test-invalid-user' namespace-status.txt && (echo "Invalid namespace still exists" && exit 1)
 
-            return 1
-          }
-
-          # Check valid namespace remains
-          if ! check_namespace test-valid-user true; then
-            echo "::error::Valid namespace was deleted"
-            exit 1
-          fi
-
-          # Check invalid namespace was deleted
-          if check_namespace test-invalid-user true; then
-            echo "::error::Invalid namespace not deleted"
-            exit 1
-          fi
-
-          # Check expired namespace was deleted
-          if check_namespace test-expired-ns true; then
-            echo "::error::Expired namespace not deleted"
-            exit 1
-          fi
+          # Validate test-expired-ns deleted
+          grep -q 'test-expired-ns' namespace-status.txt && (echo "Expired namespace still exists" && exit 1)
 
           echo "All tests passed!"
-          kubectl get ns
+          cat namespace-status.txt
