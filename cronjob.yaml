@@ -1,0 +1,33 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: namespace-cleaner
+spec:
+  schedule: "0 0 * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+            - name: cleaner
+              image: mcr.microsoft.com/azure-cli
+              command: ["/bin/sh", "-c"]
+              args:
+                - apk add jq bc && ./namespace-cleaner.sh
+              envFrom:
+                - secretRef:
+                    name: azure-creds
+              volumeMounts:
+                - name: script
+                  mountPath: /namespace-cleaner.sh
+                  subPath: namespace-cleaner.sh
+                - name: config
+                  mountPath: /etc/cleaner-config
+          volumes:
+            - name: script
+              configMap:
+                name: namespace-cleaner-script
+            - name: config
+              configMap:
+                name: namespace-cleaner-config
+          restartPolicy: Never
