@@ -1,8 +1,6 @@
 #!/bin/sh
 # Kubernetes Namespace Cleaner
 # Automatically manages namespace lifecycle based on Azure Entra ID user status
-# Author: Your Name
-# Version: 1.0.0
 
 set -eu  # Enable strict error handling
 
