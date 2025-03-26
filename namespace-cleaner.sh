@@ -62,7 +62,7 @@ valid_domain() {
 
 # Dry-run wrapper
 kubectl_dryrun() {
-  if [ "$DRY_RUN" = "true" ]; then
+  if [ "${DRY_RUN:-false}" = "true" ]; then  # Handle unset variable
     echo "[DRY RUN] Would execute: kubectl $@"
   else
     kubectl "$@"

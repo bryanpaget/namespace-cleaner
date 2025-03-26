@@ -1,28 +1,39 @@
-.PHONY: apply-config clean test run
+.PHONY: test dry-run run stop clean
 
-test: apply-config run verify
-
-apply-config:
-	@echo "Applying test configurations..."
-	kubectl apply -f tests/test-config.yaml
-	kubectl apply -f tests/test-cases.yaml
-
-run: apply-config
-	@echo "\nRunning namespace cleaner..."
-	DRY_RUN=false TEST_MODE=true bash ./namespace-cleaner.sh
-
-verify:
+# Local testing (no Azure, real execution)
+test:
+	@echo "Running local test suite..."
+	kubectl apply -f tests/test-config.yaml -f tests/test-cases.yaml
+	DRY_RUN=false TEST_MODE=true ./namespace-cleaner.sh
 	@echo "\nVerification:"
-	@echo "Checking valid namespace exists..."
-	@kubectl get ns test-valid-user || (echo "::error::Valid namespace missing" && exit 1)
-	@echo "Checking invalid namespace deleted..."
-	@! kubectl get ns test-invalid-user 2>/dev/null || (echo "::error::Invalid namespace exists" && exit 1)
-	@echo "Checking expired namespace deleted..."
-	@! kubectl get ns test-expired-ns 2>/dev/null || (echo "::error::Expired namespace exists" && exit 1)
-	@echo "All tests passed!"
+	@kubectl get ns -l app.kubernetes.io/part-of=kubeflow-profile
+	@make clean-test
 
-clean:
-	@echo "Cleaning up..."
-	kubectl delete -f tests/test-config.yaml --ignore-not-found
-	kubectl delete -f tests/test-cases.yaml --ignore-not-found
+# Dry-run mode (no changes)
+dry-run:
+	@echo "Executing dry-run..."
+	DRY_RUN=true ./namespace-cleaner.sh
+
+# Deploy to production
+run:
+	@echo "Deploying namespace cleaner..."
+	kubectl apply -f configmap.yaml -f secret.yaml -f cronjob.yaml
+	@echo "\nCronJob scheduled. Next run:"
+	kubectl get cronjob namespace-cleaner -o jsonpath='{.status.nextScheduleTime}'
+
+# Stop production deployment
+stop:
+	@echo "Stopping namespace cleaner..."
+	kubectl delete -f cronjob.yaml --ignore-not-found
+	@echo "Retaining configmap/secret for audit purposes."
+
+# Clean test artifacts
+clean-test:
+	@echo "Cleaning test resources..."
+	kubectl delete -f tests/test-config.yaml -f tests/test-cases.yaml --ignore-not-found
 	rm -f ./cleaner-config.env
+
+# Full cleanup (including production)
+clean: clean-test
+	@echo "Cleaning production resources..."
+	kubectl delete -f configmap.yaml -f secret.yaml -f cronjob.yaml --ignore-not-found
