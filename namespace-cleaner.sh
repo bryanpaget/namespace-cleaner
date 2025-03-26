@@ -9,7 +9,7 @@ if [ "$TEST_MODE" = "true" ]; then
 
   # Load configuration
   kubectl get configmap namespace-cleaner-config -o jsonpath='{.data.config\.env}' > "$CONFIG_FILE"
-  if ! source "$CONFIG_FILE"; then
+  if ! . "$CONFIG_FILE"; then
     echo "Error: Failed to load configuration"
     exit 1
   fi
@@ -27,7 +27,7 @@ else
     echo "Error: Missing production configuration at /etc/cleaner-config/config.env"
     exit 1
   fi
-  source /etc/cleaner-config/config.env
+  . /etc/cleaner-config/config.env
 
   # Azure login validation
   if ! az login --service-principal \
@@ -44,8 +44,7 @@ user_exists() {
   local user="$1"
 
   if [ "$TEST_MODE" = "true" ]; then
-    # Check against ConfigMap test users
-    grep -qFx "$user" <<< "$TEST_USERS"
+    echo "$TEST_USERS" | grep -qFx "$user"
     return $?
   else
     # Production Azure check
@@ -70,13 +69,9 @@ kubectl_dryrun() {
   fi
 }
 
-# Grace period calculation
 grace_days=$(echo "$GRACE_PERIOD" | grep -oE '^[0-9]+')
-if [ -z "$grace_days" ]; then
-  echo "Invalid GRACE_PERIOD: $GRACE_PERIOD"
-  exit 1
-fi
-delete_date=$(date -u "+%Y-%m-%d" -d "@$(( $(date +%s) + grace_days * 86400 ))")
+[ -z "$grace_days" ] && { echo "Invalid GRACE_PERIOD: $GRACE_PERIOD"; exit 1; }
+delete_date=$(date -u "+%Y-%m-%d" -d "now + ${grace_days} days")
 
 # Phase 1: Process new namespaces
 kubectl get ns -l 'app.kubernetes.io/part-of=kubeflow-profile,!namespace-cleaner/delete-at' \
@@ -101,13 +96,14 @@ kubectl get ns -l 'namespace-cleaner/delete-at' \
   | while read line; do
 
   ns=$(echo "$line" | cut -f1)
+  label_delete_date=$(echo "$line" | cut -f2)  # Get date from label
   owner_email=$(kubectl get ns $ns -o jsonpath='{.metadata.annotations.owner}')
 
   today=$(date -u +%Y-%m-%d)
-  delete_day=$delete_date
+  delete_day=$(echo "$label_delete_date" | cut -d'T' -f1)  # Strip timestamp
 
   echo "Processing namespace: $ns (delete date: $delete_day)"
-  if [[ "$today" > "$delete_day" ]]; then
+  if [ "$today" \> "$delete_day" ]; then
     echo "Namespace $ns is past deletion date ($delete_day)"
     if ! user_exists "$owner_email"; then
       echo "Deleting expired namespace: $ns"

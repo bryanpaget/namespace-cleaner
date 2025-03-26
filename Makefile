@@ -1,5 +1,4 @@
-# Final Makefile
-.PHONY: apply-config clean test
+.PHONY: apply-config clean test run
 
 test: apply-config run verify
 
@@ -8,9 +7,9 @@ apply-config:
 	kubectl apply -f tests/test-config.yaml
 	kubectl apply -f tests/test-cases.yaml
 
-run:
+run: apply-config
 	@echo "\nRunning namespace cleaner..."
-	TEST_MODE=true ./namespace-cleaner.sh
+	DRY_RUN=false TEST_MODE=true ./namespace-cleaner.sh
 
 verify:
 	@echo "\nVerification:"
