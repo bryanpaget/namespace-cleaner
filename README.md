@@ -15,7 +15,7 @@ flowchart TD
     G --> H[Get namespaces with kubeflow label]
     H --> I[Loop Through Namespaces]
     I --> J{Valid Domain?}
-    J -->|No| K[Log "Invalid Domain"]
+    J -->|No| K[Log Invalid Domain]
     J -->|Yes| L{User Exists?}
     L -->|No| M[Label for Deletion]
     L -->|Yes| N[Skip]
@@ -23,7 +23,7 @@ flowchart TD
     G --> O[Phase 2: Expired Labels]
     O --> P[Get namespaces with delete-at label]
     P --> Q[Loop Through Namespaces]
-    Q --> R{Grace Period Expired?}
+    Q --> R{Grace Period Expired}
     R -->|Yes| S{User Still Missing?}
     S -->|Yes| T[Delete Namespace]
     S -->|No| U[Remove Label]
@@ -35,7 +35,6 @@ flowchart TD
     class A,D,E,T,U green
     class M,V orange
 ```
-
 ## Features
 
 - Labels namespaces for deletion after a grace period (`GRACE_PERIOD`).
