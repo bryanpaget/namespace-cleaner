@@ -1,58 +1,65 @@
 # Kubernetes Namespace Cleaner
-Automatically marks and deletes Kubernetes namespaces if their owner no longer exists in Azure Entra ID.
+
+A Kubernetes CronJob that automatically identifies and cleans up namespaces tied to deprovisioned Azure Entra ID (formerly Azure AD) users.
 
 ```mermaid
-%% Workflow Diagram
 flowchart TD
-    A[CronJob Trigger] --> B[Load Config]
-    B --> C{Mode?}
-    C -->|Dry Run| D[Log Actions Only]
-    C -->|Test Mode| E[Use Mock Users]
-    C -->|Production| F[Authenticate with Azure]
-    D & E & F --> G[Process Namespaces]
-    G --> H[Validate Domain]
-    H -->|Invalid| I[Log Error]
-    H -->|Valid| J[Check User Exists]
-    J -->|Missing| K[Label for Deletion]
-    J -->|Exists| L[Skip]
-    G --> M[Clean Expired Namespaces]
-    M --> N[Delete if Expired]
+    A[Start] --> B{Mode}
+    B -->|Test| C[Use Mock Data]
+    B -->|Dry Run| D[Log Actions]
+    B -->|Production| E[Azure Auth]
+    C & D & E --> F[Process Namespaces]
+    F --> G{Valid Owner?}
+    G -->|No| H[Label for Deletion]
+    G -->|Yes| I[Skip]
+    F --> J[Clean Expired]
+    J --> K{Expired?}
+    K -->|Yes| L[Delete Namespace]
+    K -->|No| M[Keep]
 ```
+
 ## Features
+
 - 🏷️ Label-based namespace lifecycle management
 - 🔒 Azure Entra ID integration
 - 🧪 Local testing mode
 - ☁️ Dry-run capability
 
----
-
 ## Quick Start
+
 ```bash
 # 1. Clone repo
-git clone https://github.com/yourusername/namespace-cleaner.git
+git clone https://github.com/bryanpaget/namespace-cleaner.git
 cd namespace-cleaner
 
-# 2. Deploy
+# 2. Test locally
+make test # Full test suite with cleanup
+
+# 3. Dry Run
+make dry-run # Preview actions without execution
+
+# 4. Deploy
 make run  # Applies configmap/secret and starts CronJob
 
-# 3. Test locally
-make test # Full test suite with cleanup
+# 5. Stop CronJob
+make stop  # Retains configs
+
+# 6. Clean Expired Namespaces
+make clean  # Removes all namespace-cleaner resources
 ```
 
----
-
 ## Command Reference
-| Command          | Description                          |
-|------------------|--------------------------------------|
-| `make test`      | Run full test suite (local cluster)  |
-| `make dry-run`   | Preview actions without execution    |
-| `make run`       | Deploy to production                 |
-| `make stop`      | Stop CronJob (retains configs)       |
-| `make clean`     | Remove all resources                 |
 
----
+| Command          | Description                            |
+|------------------|----------------------------------------|
+| `make test`      | Run full test suite (local cluster)    |
+| `make dry-run`   | Preview actions without execution      |
+| `make run`       | Deploy to production                   |
+| `make stop`      | Stop CronJob (retains configs)         |
+| `make clean`     | Remove all namespace-cleaner resources |
 
 ## Configuration
+
 **1. `configmap.yaml`** - Set allowed domains and grace period:
 ```yaml
 data:
@@ -69,9 +76,8 @@ stringData:
   AZURE_CLIENT_SECRET: <client-secret>
 ```
 
----
-
 ## Testing Guide
+
 **Local Cluster Test**:
 ```bash
 make test  # Creates → Labels → Deletes test namespaces
@@ -89,7 +95,9 @@ make test  # Creates → Labels → Deletes test namespaces
 ---
 
 ## Troubleshooting
+
 **Common Issues**:
+
 ```bash
 # View cleaner logs
 kubectl logs -l job-name=namespace-cleaner
@@ -102,18 +110,9 @@ make stop && make clean && make run
 ```
 
 **Error Reference**:
+
 | Error                          | Solution                      |
 |--------------------------------|-------------------------------|
 | `Invalid domain`               | Update ALLOWED_DOMAINS        |
 | `Azure login failed`           | Verify secret.yaml            |
 | `Namespace not deleted`        | Check GRACE_PERIOD value      |
-
----
-
-## Architecture
-| Component              | Purpose                         |
-|------------------------|---------------------------------|
-| **CronJob**            | Scheduled execution             |
-| **ConfigMap**          | Stores cleaner configuration    |
-| **Secret**             | Holds Azure credentials         |
-| **Test ConfigMaps**    | Mock users/domains for testing  |
