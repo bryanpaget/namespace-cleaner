@@ -78,7 +78,9 @@ kubectl get ns -l namespace-cleaner/delete-at \
   today=$(date -u +%Y-%m-%d)
   delete_day=$(echo $delete_date | cut -d'T' -f1)
 
+  echo "Processing namespace: $ns (delete date: $delete_day)"
   if [[ "$today" > "$delete_day" ]]; then
+    echo "Namespace $ns is past deletion date ($delete_day)"
     if ! user_exists "$owner_email"; then
       echo "Deleting expired namespace: $ns"
       kubectl_dryrun delete ns $ns
@@ -87,6 +89,7 @@ kubectl get ns -l namespace-cleaner/delete-at \
       kubectl_dryrun label ns $ns namespace-cleaner/delete-at-
     fi
   else
+    echo "Namespace $ns not expired yet (delete date: $delete_day)"
     if user_exists "$owner_email"; then
       echo "User restored, removing deletion marker from $ns"
       kubectl_dryrun label ns $ns namespace-cleaner/delete-at-

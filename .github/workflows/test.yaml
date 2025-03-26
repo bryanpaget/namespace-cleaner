@@ -11,13 +11,14 @@ jobs:
 
       - name: Set up Kind cluster
         uses: helm/kind-action@v1.8.0
-        with:
-          version: "v0.20.0"
 
       - name: Install kubectl
         uses: azure/setup-kubectl@v3
-        with:
-          version: "v1.28.0" # Match your cluster version
+
+      - name: Cleanup previous test
+        run: |
+          kubectl delete ns test-valid-user test-invalid-user test-expired-ns --ignore-not-found
+          kubectl delete configmap namespace-cleaner-test-users --ignore-not-found
 
       - name: Deploy test resources
         run: |
@@ -33,16 +34,46 @@ jobs:
 
       - name: Verify results
         run: |
-          # Allow some time for finalization
-          sleep 10
+          # Function to check namespace existence with retries
+          check_namespace() {
+            local ns=$1
+            local should_exist=$2
+            local attempts=0
+            local max_attempts=5
+
+            while [ $attempts -lt $max_attempts ]; do
+              exists=$(kubectl get ns $ns -o name 2>/dev/null | wc -l)
+
+              if [ $should_exist = true ] && [ $exists -eq 1 ]; then
+                return 0
+              elif [ $should_exist = false ] && [ $exists -eq 0 ]; then
+                return 0
+              fi
+
+              sleep 5
+              attempts=$((attempts+1))
+            done
+
+            return 1
+          }
 
           # Check valid namespace remains
-          kubectl get ns test-valid-user || { echo "Valid namespace was deleted"; exit 1; }
+          if ! check_namespace test-valid-user true; then
+            echo "::error::Valid namespace was deleted"
+            exit 1
+          fi
 
           # Check invalid namespace was deleted
-          kubectl get ns test-invalid-user && { echo "Invalid namespace not deleted"; exit 1; } || true
+          if check_namespace test-invalid-user true; then
+            echo "::error::Invalid namespace not deleted"
+            exit 1
+          fi
 
           # Check expired namespace was deleted
-          kubectl get ns test-expired-ns && { echo "Expired namespace not deleted"; exit 1; } || true
+          if check_namespace test-expired-ns true; then
+            echo "::error::Expired namespace not deleted"
+            exit 1
+          fi
 
           echo "All tests passed!"
+          kubectl get ns
