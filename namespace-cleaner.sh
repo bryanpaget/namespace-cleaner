@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-# Modified configuration loading
+# Configuration for testing
 CONFIG_FILE="./cleaner-config.env"
 
 if [ "$TEST_MODE" = "true" ]; then
