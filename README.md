@@ -21,41 +21,38 @@ This cleaner operates in two phases:
 
 ## Diagram
 
+### Phase 1
+
 ``` mermaid
-%% Phase 1 - Evaluate New Namespaces
 flowchart TD
-    A[Start] --> B{Operation Mode}
-    B -->|Test Mode| C[Use Mock Users/Domains]
-    B -->|Dry Run| D[Azure Auth - Preview Only]
-    B -->|Production| E[Azure Auth - Real Checks]
+    A[Start] --> B{Mode}
+    B -->|Test| C[Use Mock Data]
+    B -->|Dry Run| D[Preview Actions]
+    B -->|Prod| E[Real Azure Auth]
     
     C & D & E --> F[Check New Namespaces]
     
-    F --> G1{Valid Email Domain?}
+    F --> G1{Valid Domain?}
     G1 -->|Yes| G2{User Exists?}
-    G1 -->|No| H[Log: Invalid Domain - Ignore]
+    G1 -->|No| H[Log & Ignore]
     
-    G2 -->|Missing| I[Label for Deletion\nGrace Period: ${GRACE_PERIOD}]
-    G2 -->|Active| J[Leave Unmodified]
-    
-    classDef phase1 fill:#e6f3ff,stroke:#4d90fe;
-    class A,B,C,D,E,F,G1,G2,H,I,J phase1;
+    G2 -->|Missing| I[Label for Deletion]
+    G2 -->|Exists| J[No Action]
+```
 
-%% Phase 2 - Cleanup Expired Namespaces
+### Phase 2
+
+``` mermaid
 flowchart TD
-    K[Start Cleanup] --> L[Fetch Labeled Namespaces]
-    L --> M{Delete Date Passed?}
+    K[Start] --> L[Check Labeled Namespaces]
+    L --> M{Grace Period Expired?}
     
     M -->|Yes| N{User Still Missing?}
-    M -->|No| O[Keep - Within Grace Period]
+    M -->|No| O[Keep Namespace]
     
     N -->|Yes| P[Delete Namespace]
     N -->|No| Q[Remove Label]
-    
-    classDef phase2 fill:#ffe6e6,stroke:#ff4d4d;
-    class K,L,M,N,O,P,Q phase2;
 ```
-
 ## Features
 
 - ✅ Label-based namespace lifecycle management
