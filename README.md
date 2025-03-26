@@ -18,9 +18,6 @@ flowchart TD
     G --> M[Clean Expired Namespaces]
     M --> N[Delete if Expired]
 ```
-
----
-
 ## Features
 - 🏷️ Label-based namespace lifecycle management
 - 🔒 Azure Entra ID integration
