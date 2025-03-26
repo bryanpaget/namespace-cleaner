@@ -33,13 +33,16 @@ jobs:
 
       - name: Verify results
         run: |
+          # Allow some time for finalization
+          sleep 10
+
           # Check valid namespace remains
           kubectl get ns test-valid-user || { echo "Valid namespace was deleted"; exit 1; }
 
           # Check invalid namespace was deleted
-          kubectl get ns test-invalid-user && { echo "Invalid namespace not deleted"; exit 1; }
+          kubectl get ns test-invalid-user && { echo "Invalid namespace not deleted"; exit 1; } || true
 
           # Check expired namespace was deleted
-          kubectl get ns test-expired-ns && { echo "Expired namespace not deleted"; exit 1; }
+          kubectl get ns test-expired-ns && { echo "Expired namespace not deleted"; exit 1; } || true
 
           echo "All tests passed!"
