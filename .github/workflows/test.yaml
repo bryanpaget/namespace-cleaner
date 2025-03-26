@@ -19,8 +19,8 @@ jobs:
         env:
           TEST_MODE: "true"
         run: |
-          make test  # Uses fixed Makefile
-          make clean  # Cleanup after test
+          make test
+          make clean
 
       - name: Debug on failure
         if: ${{ failure() }}
