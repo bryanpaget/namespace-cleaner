@@ -15,9 +15,11 @@ jobs:
       - name: Install kubectl
         uses: azure/setup-kubectl@v3
 
-      - name: Run full test suite
+      - name: Run tests
+        env:
+          TEST_MODE: "true"
         run: |
-          make test  # Applies configs → runs cleaner → verifies results
+          make test  # Uses fixed Makefile
           make clean  # Cleanup after test
 
       - name: Debug on failure

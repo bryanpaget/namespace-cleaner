@@ -70,11 +70,15 @@ kubectl_dryrun() {
 }
 
 # Grace period calculation
-grace_days=$(echo $GRACE_PERIOD | grep -oE '[0-9]+')
+grace_days=$(echo "$GRACE_PERIOD" | grep -oE '^[0-9]+')  # Extract leading digits
+if [ -z "$grace_days" ]; then
+  echo "Invalid GRACE_PERIOD: $GRACE_PERIOD"
+  exit 1
+fi
 delete_date=$(date -d "+${grace_days} days" -u +%Y-%m-%d)
 
 # Phase 1: Process new namespaces
-kubectl get ns -l app.kubernetes.io/part-of=kubeflow-profile,!\namespace-cleaner/delete-at \
+kubectl get ns -l 'app.kubernetes.io/part-of=kubeflow-profile,!namespace-cleaner/delete-at' \
   -o jsonpath='{.items[*].metadata.name}' | tr ' ' '\n' | while read ns; do
 
   owner_email=$(kubectl get ns $ns -o jsonpath='{.metadata.annotations.owner}')
