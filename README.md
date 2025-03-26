@@ -2,6 +2,40 @@
 
 Automatically marks and deletes Kubernetes namespaces if their owner no longer exists in Azure Entra ID.
 
+```mermaid
+%% Namespace Cleaner Workflow (Bash Version)
+flowchart TD
+    A[CronJob Trigger] --> B[Load Config]
+    B --> C{Mode?}
+    C -->|Dry Run| D[Log Actions Only]
+    C -->|Test Mode| E[Use Mock Users/Domains]
+    C -->|Production| F[Authenticate with Azure]
+
+    D & E & F --> G[Phase 1: New Namespaces]
+    G --> H[Get namespaces with kubeflow label]
+    H --> I[Loop Through Namespaces]
+    I --> J{Valid Domain?}
+    J -->|No| K[Log "Invalid Domain"]
+    J -->|Yes| L{User Exists?}
+    L -->|No| M[Label for Deletion]
+    L -->|Yes| N[Skip]
+
+    G --> O[Phase 2: Expired Labels]
+    O --> P[Get namespaces with delete-at label]
+    P --> Q[Loop Through Namespaces]
+    Q --> R{Grace Period Expired?}
+    R -->|Yes| S{User Still Missing?}
+    S -->|Yes| T[Delete Namespace]
+    S -->|No| U[Remove Label]
+    R -->|No| V{User Restored?}
+    V -->|Yes| U
+
+    classDef green fill:#d6f0dd,stroke:#28a745;
+    classDef orange fill:#fce8d2,stroke:#fd7e14;
+    class A,D,E,T,U green
+    class M,V orange
+```
+
 ---
 
 ## Features
@@ -11,14 +45,10 @@ Automatically marks and deletes Kubernetes namespaces if their owner no longer e
 - **Local Testing Mode**: Simulate checks without Azure integration.
 - **Dry Run Mode**: Preview actions without modifying the cluster.
 
----
-
 ## Prerequisites
 
 - `kubectl` configured with cluster access.
 - Azure service principal credentials (for production/dry-run modes).
-
----
 
 ## Installation
 
@@ -32,8 +62,6 @@ Automatically marks and deletes Kubernetes namespaces if their owner no longer e
    kubectl apply -f secret.yaml
    kubectl apply -f cronjob.yaml
    ```
-
----
 
 ## Testing Modes
 
@@ -57,8 +85,6 @@ export DRY_RUN="true"
 ./namespace-cleaner.sh
 ```
 
----
-
 ## Production Deployment
 The CronJob runs daily at midnight (UTC). To modify the schedule, edit `cronjob.yaml`:
 ```yaml
@@ -70,16 +96,12 @@ spec:
 - Valid Azure credentials in `secret.yaml`.
 - Ensure `ALLOWED_DOMAINS` in `configmap.yaml` matches your organization's domains.
 
----
-
 ## Limitations vs. a Go Implementation
 1. **Performance**: Bash scripts process namespaces sequentially. For large clusters (>1000 namespaces), a Go binary would be faster.
 2. **Error Handling**: Limited retry logic for transient Azure/k8s API errors.
 3. **Dependencies**: Relies on `az` CLI, `jq`, and `bc` utilities. A Go binary could embed these checks.
 4. **State Management**: Uses Kubernetes labels for tracking deletion states. A Go implementation could use a database for auditability.
 5. **Testing Complexity**: Mocking Azure users requires manual environment variable setup.
-
----
 
 ## Troubleshooting
 - **Azure Login Failures**: Verify `secret.yaml` credentials and Azure permissions.
