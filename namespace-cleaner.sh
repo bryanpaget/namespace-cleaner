@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail  # Fail on errors and unset vars
 
 # Modified configuration loading
 CONFIG_FILE="./cleaner-config.env"
@@ -75,7 +76,7 @@ if [ -z "$grace_days" ]; then
   echo "Invalid GRACE_PERIOD: $GRACE_PERIOD"
   exit 1
 fi
-delete_date=$(date -d "now + ${grace_days} days" -u +%Y-%m-%d)
+delete_date=$(date -u "+%Y-%m-%d" -d "@$(( $(date +%s) + grace_days * 86400 ))")
 
 # Phase 1: Process new namespaces
 kubectl get ns -l 'app.kubernetes.io/part-of=kubeflow-profile,!namespace-cleaner/delete-at' \
@@ -103,7 +104,7 @@ kubectl get ns -l 'namespace-cleaner/delete-at' \
   owner_email=$(kubectl get ns $ns -o jsonpath='{.metadata.annotations.owner}')
 
   today=$(date -u +%Y-%m-%d)
-  delete_day=$(echo $delete_date | cut -d'T' -f1)
+  delete_day=$delete_date
 
   echo "Processing namespace: $ns (delete date: $delete_day)"
   if [[ "$today" > "$delete_day" ]]; then
