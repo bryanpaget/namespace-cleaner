@@ -11,19 +11,23 @@ jobs:
 
       - name: Set up Kind cluster
         uses: helm/kind-action@v1.8.0
+        with:
+          version: "v0.20.0"
 
-      - name: Install kubectl
-        uses: azure/setup-kubectl@v3
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bash  # Ensure bash is available
 
-      - name: Run tests
-        env:
-          TEST_MODE: "true"
+      - name: Run test suite
         run: |
           make test
-          make clean
+          make clean  # Cleanup after successful test
 
       - name: Debug on failure
         if: ${{ failure() }}
         run: |
-          kubectl get ns -owide
-          kubectl get configmaps -owide
+          echo "=== Cluster State ==="
+          kubectl get ns,configmaps -owide
+          echo "=== Cleaner Logs ==="
+          cat /proc/1/fd/1

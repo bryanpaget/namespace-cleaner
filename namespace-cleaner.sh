@@ -1,5 +1,5 @@
 #!/bin/sh
-set -euo pipefail  # Fail on errors and unset vars
+set -eu
 
 # Modified configuration loading
 CONFIG_FILE="./cleaner-config.env"

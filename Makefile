@@ -9,7 +9,7 @@ apply-config:
 
 run: apply-config
 	@echo "\nRunning namespace cleaner..."
-	DRY_RUN=false TEST_MODE=true ./namespace-cleaner.sh
+	DRY_RUN=false TEST_MODE=true bash ./namespace-cleaner.sh
 
 verify:
 	@echo "\nVerification:"
