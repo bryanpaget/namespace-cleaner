@@ -25,8 +25,8 @@ This cleaner operates in two phases:
 flowchart TD
     A[Start] --> B{Operation Mode}
     B -->|Test Mode| C[Use Mock Users/Domains]
-    B -->|Dry Run| D[Preview Actions - No Changes]
-    B -->|Production| E[Authenticate with Azure]
+    B -->|Dry Run| D[Authenticate with Azure - Preview Actions - No Changes]
+    B -->|Production| E[Authenticate with Azure - Changes]
 
     C & D & E --> F[Process Namespaces]
 
