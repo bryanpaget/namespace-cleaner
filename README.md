@@ -29,7 +29,7 @@ flowchart TD
 ## Quick Start
 ```bash
 # 1. Clone repo
-git clone https://github.com/yourusername/namespace-cleaner.git
+git clone https://github.com/bryanpaget/namespace-cleaner.git
 cd namespace-cleaner
 
 # 2. Deploy

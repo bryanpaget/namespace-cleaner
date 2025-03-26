@@ -55,13 +55,18 @@ load_config() {
     . /etc/cleaner-config/config.env
 
     # Azure authentication
-    if ! az login --service-principal \
-      -u "$AZURE_CLIENT_ID" \
-      -p "$AZURE_CLIENT_SECRET" \
-      --tenant "$AZURE_TENANT_ID" >/dev/null; then
-      echo "Error: Azure authentication failed"
-      exit 1
+    if [ "$DRY_RUN" = "false" ]; then  # Only login if not dry-run
+      if ! az login --service-principal \
+        -u "$AZURE_CLIENT_ID" \
+        -p "$AZURE_CLIENT_SECRET" \
+        --tenant "$AZURE_TENANT_ID" > /dev/null; then
+        echo "Error: Azure login failed"
+        exit 1
+      fi
+    else
+      echo "DRY RUN: Skipping Azure login"
     fi
+
   fi
 
   # Validate loaded configuration
@@ -78,12 +83,16 @@ user_exists() {
   local user="$1"
 
   if [ "$TEST_MODE" = "true" ]; then
+    # Test mode: Check against mock users
     echo "$TEST_USERS" | grep -qFx "$user"
   else
+    # Production/Dry-run: Real Azure check
+    if [ "$DRY_RUN" = "true" ]; then
+      echo "[DRY RUN] Checking Azure for user: $user"
+    fi
     az ad user show --id "$user" >/dev/null 2>&1
   fi
 }
-
 valid_domain() {
   local email="$1"
   local domain=$(echo "$email" | cut -d@ -f2)
