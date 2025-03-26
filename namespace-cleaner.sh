@@ -3,19 +3,41 @@
 # Load configuration
 source /etc/cleaner-config/config.env
 
-# Azure login
-az login --service-principal -u $AZURE_CLIENT_ID -p $AZURE_CLIENT_SECRET --tenant $AZURE_TENANT_ID
+# Enable test mode (skip Azure login, use test users/domains)
+if [ "$TEST_MODE" = "true" ]; then
+  echo "Running in TEST_MODE"
+  # Override allowed domains if specified
+  if [ -n "$TEST_ALLOWED_DOMAINS" ]; then
+    ALLOWED_DOMAINS="$TEST_ALLOWED_DOMAINS"
+  fi
+else
+  # Azure login (skip in test mode)
+  az login --service-principal -u $AZURE_CLIENT_ID -p $AZURE_CLIENT_SECRET --tenant $AZURE_TENANT_ID
+fi
 
 # Function to check user existence
 user_exists() {
-    az ad user show --id "$1" >/dev/null 2>&1
-    return $?
+    if [ "$TEST_MODE" = "true" ]; then
+        [[ ",${TEST_USERS}," =~ ",$1," ]] && return 0 || return 1
+    else
+        az ad user show --id "$1" >/dev/null 2>&1
+        return $?
+    fi
 }
 
 # Function to validate domain
 valid_domain() {
     local domain=$(echo "$1" | cut -d@ -f2)
     [[ ",${ALLOWED_DOMAINS}," =~ ",${domain}," ]]
+}
+
+# Dry-run wrapper for kubectl
+kubectl_dryrun() {
+    if [ "$DRY_RUN" = "true" ]; then
+        echo "DRY RUN: $@"
+    else
+        kubectl "$@"
+    fi
 }
 
 # Convert grace period days to date
@@ -35,7 +57,7 @@ kubectl get ns -l app.kubernetes.io/part-of=kubeflow-profile,!\namespace-cleaner
 
     if ! user_exists "$owner_email"; then
         echo "Marking $ns for deletion on $delete_date"
-        kubectl label ns $ns namespace-cleaner/delete-at=$delete_date
+        kubectl_dryrun label ns $ns namespace-cleaner/delete-at=$delete_date
     fi
 done
 
@@ -54,15 +76,15 @@ kubectl get ns -l namespace-cleaner/delete-at \
     if [[ "$today" > "$delete_day" ]]; then
         if ! user_exists "$owner_email"; then
             echo "Deleting expired namespace: $ns"
-            kubectl delete ns $ns
+            kubectl_dryrun delete ns $ns
         else
             echo "User restored, removing deletion marker from $ns"
-            kubectl label ns $ns namespace-cleaner/delete-at-
+            kubectl_dryrun label ns $ns namespace-cleaner/delete-at-
         fi
     else
         if user_exists "$owner_email"; then
             echo "User restored, removing deletion marker from $ns"
-            kubectl label ns $ns namespace-cleaner/delete-at-
+            kubectl_dryrun label ns $ns namespace-cleaner/delete-at-
         fi
     fi
 done
