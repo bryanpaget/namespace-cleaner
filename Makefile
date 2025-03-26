@@ -12,7 +12,7 @@ test:
 # Dry-run mode (no changes)
 dry-run:
 	@echo "Executing dry-run..."
-	DRY_RUN=true ./namespace-cleaner.sh
+	DRY_RUN=true TEST_MODE=false ./namespace-cleaner.sh
 
 # Deploy to production
 run:
