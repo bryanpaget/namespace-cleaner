@@ -2,6 +2,40 @@
 
 Automatically marks and deletes Kubernetes namespaces if their owner no longer exists in Azure Entra ID.
 
+```mermaid
+%% Namespace Cleaner Workflow (Bash Version)
+flowchart TD
+    A[CronJob Trigger] --> B[Load Config]
+    B --> C{Mode?}
+    C -->|Dry Run| D[Log Actions Only]
+    C -->|Test Mode| E[Use Mock Users/Domains]
+    C -->|Production| F[Authenticate with Azure]
+
+    D & E & F --> G[Phase 1: New Namespaces]
+    G --> H[Get namespaces with kubeflow label]
+    H --> I[Loop Through Namespaces]
+    I --> J{Valid Domain?}
+    J -->|No| K[Log "Invalid Domain"]
+    J -->|Yes| L{User Exists?}
+    L -->|No| M[Label for Deletion]
+    L -->|Yes| N[Skip]
+
+    G --> O[Phase 2: Expired Labels]
+    O --> P[Get namespaces with delete-at label]
+    P --> Q[Loop Through Namespaces]
+    Q --> R{Grace Period Expired?}
+    R -->|Yes| S{User Still Missing?}
+    S -->|Yes| T[Delete Namespace]
+    S -->|No| U[Remove Label]
+    R -->|No| V{User Restored?}
+    V -->|Yes| U
+
+    classDef green fill:#d6f0dd,stroke:#28a745;
+    classDef orange fill:#fce8d2,stroke:#fd7e14;
+    class A,D,E,T,U green
+    class M,V orange
+```
+
 ## Features
 
 - Labels namespaces for deletion after a grace period (`GRACE_PERIOD`).
