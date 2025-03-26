@@ -2,8 +2,6 @@
 
 Automatically marks and deletes Kubernetes namespaces if their owner no longer exists in Azure Entra ID.
 
----
-
 ## Features
 
 - Labels namespaces for deletion after a grace period (`GRACE_PERIOD`).
@@ -11,14 +9,10 @@ Automatically marks and deletes Kubernetes namespaces if their owner no longer e
 - **Local Testing Mode**: Simulate checks without Azure integration.
 - **Dry Run Mode**: Preview actions without modifying the cluster.
 
----
-
 ## Prerequisites
 
 - `kubectl` configured with cluster access.
 - Azure service principal credentials (for production/dry-run modes).
-
----
 
 ## Installation
 
@@ -32,8 +26,6 @@ Automatically marks and deletes Kubernetes namespaces if their owner no longer e
    kubectl apply -f secret.yaml
    kubectl apply -f cronjob.yaml
    ```
-
----
 
 ## Testing Modes
 
@@ -57,8 +49,6 @@ export DRY_RUN="true"
 ./namespace-cleaner.sh
 ```
 
----
-
 ## Production Deployment
 The CronJob runs daily at midnight (UTC). To modify the schedule, edit `cronjob.yaml`:
 ```yaml
@@ -70,16 +60,12 @@ spec:
 - Valid Azure credentials in `secret.yaml`.
 - Ensure `ALLOWED_DOMAINS` in `configmap.yaml` matches your organization's domains.
 
----
-
 ## Limitations vs. a Go Implementation
 1. **Performance**: Bash scripts process namespaces sequentially. For large clusters (>1000 namespaces), a Go binary would be faster.
 2. **Error Handling**: Limited retry logic for transient Azure/k8s API errors.
 3. **Dependencies**: Relies on `az` CLI, `jq`, and `bc` utilities. A Go binary could embed these checks.
 4. **State Management**: Uses Kubernetes labels for tracking deletion states. A Go implementation could use a database for auditability.
 5. **Testing Complexity**: Mocking Azure users requires manual environment variable setup.
-
----
 
 ## Troubleshooting
 - **Azure Login Failures**: Verify `secret.yaml` credentials and Azure permissions.
