@@ -23,6 +23,6 @@ verify:
 
 clean:
 	@echo "Cleaning up..."
-	kubectl delete -f tests/test-config.yaml
-	kubectl delete ns test-valid-user test-invalid-user test-expired-ns
-	rm ./cleaner-config.env
+	kubectl delete -f tests/test-config.yaml --ignore-not-found
+	kubectl delete -f tests/test-cases.yaml --ignore-not-found
+	rm -f ./cleaner-config.env
