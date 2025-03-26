@@ -1,0 +1,47 @@
+name: Namespace Cleaner Tests
+
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Kind cluster
+        uses: helm/kind-action@v1.8.0
+        with:
+          version: "v0.20.0"
+
+      - name: Install kubectl
+        run: |
+          sudo apt-get update && sudo apt-get install -y apt-transport-https
+          curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.28/deb/Release.key | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+          echo "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.28/deb/ /" | sudo tee /etc/apt/sources.list.d/kubernetes.list
+          sudo apt-get update && sudo apt-get install -y kubectl
+
+      - name: Deploy test resources
+        run: |
+          kubectl apply -f tests/test-config.yaml
+          kubectl apply -f tests/test-cases.yaml
+
+      - name: Run tests
+        env:
+          TEST_MODE: "true"
+        run: |
+          chmod +x namespace-cleaner.sh
+          ./namespace-cleaner.sh
+
+      - name: Verify results
+        run: |
+          # Check valid namespace remains
+          kubectl get ns test-valid-user || { echo "Valid namespace was deleted"; exit 1; }
+
+          # Check invalid namespace was deleted
+          kubectl get ns test-invalid-user && { echo "Invalid namespace not deleted"; exit 1; }
+
+          # Check expired namespace was deleted
+          kubectl get ns test-expired-ns && { echo "Expired namespace not deleted"; exit 1; }
+
+          echo "All tests passed!"
