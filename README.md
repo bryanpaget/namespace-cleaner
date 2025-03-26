@@ -40,9 +40,7 @@ flowchart TD
     
     classDef phase1 fill:#e6f3ff,stroke:#4d90fe;
     class A,B,C,D,E,F,G1,G2,H,I,J phase1;
-```
 
-``` mermaid
 %% Phase 2 - Cleanup Expired Namespaces
 flowchart TD
     K[Start Cleanup] --> L[Fetch Labeled Namespaces]
