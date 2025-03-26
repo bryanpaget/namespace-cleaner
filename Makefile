@@ -11,7 +11,8 @@ test:
 
 # Dry-run mode (no changes)
 dry-run:
-	@echo "Executing dry-run..."
+	@echo "Executing production dry-run (real Azure checks)"
+	kubectl apply -f configmap.yaml -f secret.yaml
 	DRY_RUN=true TEST_MODE=false ./namespace-cleaner.sh
 
 # Deploy to production
