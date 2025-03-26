@@ -19,21 +19,7 @@ This cleaner operates in two phases:
 - Deletes namespaces if their grace period has expired and the owner remains invalid.
 - Removes deletion labels if the owner is restored.
 
-```mermaid
-flowchart TD
-    A[Start] --> B{Mode Selection}
-    B -->|Test| C[Use Mock Data]
-    B -->|Dry Run| D[Log Actions]
-    B -->|Production| E[Authenticate with Azure]
-    C & D & E --> F[Scan Namespaces]
-    F --> G{Does Owner Exist in Azure?}
-    G -->|No| H[Label Namespace for Future Deletion]
-    G -->|Yes| I[Leave Namespace Unchanged]
-    F --> J[Check Labeled Namespaces]
-    J --> K{Is Deletion Date Reached?}
-    K -->|Yes| L[Delete Namespace]
-    K -->|No| M[Keep Namespace]
-```
+## Diagram
 
 ``` mermaid
 flowchart TD
@@ -61,10 +47,11 @@ flowchart TD
 ```
 
 ## Features
-✅ Label-based namespace lifecycle management
-🔐 Azure Entra ID integration
-🧪 Local testing mode
-☁️ Dry-run capability
+
+- ✅ Label-based namespace lifecycle management
+- 🔐 Azure Entra ID integration
+- 🧪 Local testing mode
+- ☁️ Dry-run capability
 
 ## Quick Start
 
