@@ -15,62 +15,13 @@ jobs:
       - name: Install kubectl
         uses: azure/setup-kubectl@v3
 
-      - name: Cleanup previous test
+      - name: Run full test suite
         run: |
-          kubectl delete ns test-valid-user test-invalid-user test-expired-ns --ignore-not-found
-          kubectl delete configmap namespace-cleaner-test-users --ignore-not-found
+          make test  # Applies configs → runs cleaner → verifies results
+          make clean  # Cleanup after test
 
-      - name: Deploy test resources
+      - name: Debug on failure
+        if: ${{ failure() }}
         run: |
-          kubectl apply -f tests/test-config.yaml
-          kubectl apply -f tests/test-cases.yaml
           kubectl get ns -owide
-
-      - name: Run tests
-        env:
-          TEST_MODE: "true"
-        run: |
-          chmod +x namespace-cleaner.sh
-          ./namespace-cleaner.sh
-          echo "Current configuration:"
-          cat cleaner-config.env
-          echo "Script exit code: $?"
-
-      - name: Verify results
-        run: |
-          set +e  # Disable exit on error
-          echo "=== Full Debug Information ==="
-          echo "Current namespaces:"
-          kubectl get ns -owide
-          echo "Script processing logs:"
-          cat /proc/1/fd/1  # Capture all previous output
-
-          echo "=== Test Results ==="
-          FAILED=0
-
-          # Check valid namespace
-          kubectl get ns test-valid-user || {
-            echo "::error::Valid namespace missing"
-            FAILED=1
-          }
-
-          # Check invalid namespace
-          kubectl get ns test-invalid-user && {
-            echo "::error::Invalid namespace still exists"
-            FAILED=1
-          }
-
-          # Check expired namespace
-          kubectl get ns test-expired-ns && {
-            echo "::error::Expired namespace still exists"
-            FAILED=1
-          }
-
-          # Final status
-          if [ $FAILED -eq 0 ]; then
-            echo "::notice::All tests passed!"
-          else
-            echo "::warning::Some tests failed (see errors above)"
-          fi
-
-          exit 0  # Always succeed
+          kubectl get configmaps -owide
