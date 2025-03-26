@@ -36,8 +36,6 @@ flowchart TD
     class M,V orange
 ```
 
----
-
 ## Features
 
 - Labels namespaces for deletion after a grace period (`GRACE_PERIOD`).
