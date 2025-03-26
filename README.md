@@ -22,28 +22,40 @@ This cleaner operates in two phases:
 ## Diagram
 
 ``` mermaid
+%% Phase 1 - Evaluate New Namespaces
 flowchart TD
     A[Start] --> B{Operation Mode}
     B -->|Test Mode| C[Use Mock Users/Domains]
-    B -->|Dry Run| D[Authenticate with Azure - Preview Actions - No Changes]
-    B -->|Production| E[Authenticate with Azure - Changes]
-
-    C & D & E --> F[Process Namespaces]
-
+    B -->|Dry Run| D[Azure Auth - Preview Only]
+    B -->|Production| E[Azure Auth - Real Checks]
+    
+    C & D & E --> F[Check New Namespaces]
+    
     F --> G1{Valid Email Domain?}
-    G1 -->|Yes| G2{User Exists in Entra ID?}
+    G1 -->|Yes| G2{User Exists?}
     G1 -->|No| H[Log: Invalid Domain - Ignore]
+    
+    G2 -->|Missing| I[Label for Deletion\nGrace Period: ${GRACE_PERIOD}]
+    G2 -->|Active| J[Leave Unmodified]
+    
+    classDef phase1 fill:#e6f3ff,stroke:#4d90fe;
+    class A,B,C,D,E,F,G1,G2,H,I,J phase1;
+```
 
-    G2 -->|User Missing| I[Add 'delete-at' Label with Grace Date]
-    G2 -->|User Active| J[No Action - Keep Namespace]
-
-    F --> K[Check Expired Namespaces]
-    K --> L{Delete Date Passed?}
-    L -->|Yes| M{User Still Missing?}
-    L -->|No| N[Keep - Within Grace Period]
-
-    M -->|Yes| O[Delete Namespace]
-    M -->|No| P[Remove 'delete-at' Label]
+``` mermaid
+%% Phase 2 - Cleanup Expired Namespaces
+flowchart TD
+    K[Start Cleanup] --> L[Fetch Labeled Namespaces]
+    L --> M{Delete Date Passed?}
+    
+    M -->|Yes| N{User Still Missing?}
+    M -->|No| O[Keep - Within Grace Period]
+    
+    N -->|Yes| P[Delete Namespace]
+    N -->|No| Q[Remove Label]
+    
+    classDef phase2 fill:#ffe6e6,stroke:#ff4d4d;
+    class K,L,M,N,O,P,Q phase2;
 ```
 
 ## Features
