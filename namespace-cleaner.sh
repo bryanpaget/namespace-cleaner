@@ -1,7 +1,17 @@
 #!/bin/bash
 
-# Load configuration
-source /etc/cleaner-config/config.env
+# Modified configuration loading
+CONFIG_FILE="./cleaner-config.env"
+
+# Load configuration from cluster or local file
+if [ "$TEST_MODE" = "true" ]; then
+  echo "TEST_MODE: Loading config from ConfigMap"
+  kubectl get configmap namespace-cleaner-config -o jsonpath='{.data.config\.env}' > $CONFIG_FILE
+  source $CONFIG_FILE
+else
+  # Production config (original path)
+  source /etc/cleaner-config/config.env
+fi
 
 # Testing mode setup
 if [ "$TEST_MODE" = "true" ]; then

@@ -30,10 +30,11 @@ jobs:
         env:
           TEST_MODE: "true"
         run: |
-          set +e  # Disable exit on error
           chmod +x namespace-cleaner.sh
           ./namespace-cleaner.sh
-          echo "::notice::Script execution completed (exit code $?)"
+          echo "Current configuration:"
+          cat cleaner-config.env
+          echo "Script exit code: $?"
 
       - name: Verify results
         run: |
