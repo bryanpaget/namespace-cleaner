@@ -4,5 +4,5 @@ metadata:
   name: namespace-cleaner-config
 data:
   config.env: |
-    ALLOWED_DOMAINS="test.example,company.com,example.org"
+    ALLOWED_DOMAINS="statcan.gc.ca,cloud.statcan.ca"
     GRACE_PERIOD="30d"

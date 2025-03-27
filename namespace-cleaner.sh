@@ -63,18 +63,12 @@ load_config() {
     else
         echo "PRODUCTION MODE: Loading cluster configuration"
 
-        # Production configuration file validation
-        if [ ! -f "/etc/cleaner-config/config.env" ]; then
-            echo "Error: Production configuration file not found at /etc/cleaner-config/config.env"
-            exit 1
-        fi
+        # Load configuration directly into environment
+        eval "$(kubectl get configmap namespace-cleaner-config -o jsonpath='{.data.config\.env}')"
 
-        # Source production environment variables
-        . /etc/cleaner-config/config.env
-
-        # Validate production configuration
+        # Validate essential configuration parameters
         if [ -z "${ALLOWED_DOMAINS:-}" ] || [ -z "${GRACE_PERIOD:-}" ]; then
-            echo "Error: Invalid production configuration - check config.env"
+            echo "Error: Invalid test configuration - verify ConfigMap contents"
             exit 1
         fi
 
@@ -108,12 +102,15 @@ user_exists() {
         if [ "$DRY_RUN" = "true" ]; then
             # Simulate user check in dry-run mode
             echo "[DRY RUN] Would check Azure for user: $user"
-            return 0  # Assume user exists for safe dry-run
+            # return 0  # Assume user exists for safe dry-run
+            az ad user show --id "$user" >/dev/null 2>&1
         else
             # Real Azure Entra ID check
             az ad user show --id "$user" >/dev/null 2>&1
         fi
     fi
+    # TODO: I want to check Azure in dry run mode.
+    # TODO: 
 }
 
 # Validate if an email domain is in the allowlist
@@ -169,6 +166,7 @@ process_namespaces() {
                 echo "Marking $ns for deletion on $grace_date"
                 kubectl_dryrun label ns "$ns" "namespace-cleaner/delete-at=$grace_date"
             fi
+        # TODO: add Dry run logging to "Marking $ns..."
         else
             echo "Invalid domain in $ns: $owner_email (allowed: ${ALLOWED_DOMAINS})"
         fi
