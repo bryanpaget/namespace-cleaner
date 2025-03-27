@@ -13,7 +13,7 @@ spec:
               image: mcr.microsoft.com/azure-cli
               command: ["/bin/sh", "-c"]
               args:
-                - apk add jq bc && ./namespace-cleaner.sh
+                - apk add jq && ./namespace-cleaner.sh
               envFrom:
                 - secretRef:
                     name: azure-creds
