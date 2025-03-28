@@ -78,8 +78,11 @@ load_config() {
             exit 1
         fi
 
-        # Azure authentication (skip in dry-run mode)
+        # Azure authentication
         if [ "$DRY_RUN" = "false" ]; then
+            # TODO: do I need a service principle?
+            # TODO: what is a service principle?
+            # TODO: Remove dry run wrapper, we can always use az login, maybe
             if ! az login --service-principal \
                 -u "$AZURE_CLIENT_ID" \
                 -p "$AZURE_CLIENT_SECRET" \
@@ -107,8 +110,10 @@ user_exists() {
     else
         if [ "$DRY_RUN" = "true" ]; then
             # Simulate user check in dry-run mode
-            echo "[DRY RUN] Would check Azure for user: $user"
-            return 0  # Assume user exists for safe dry-run
+            echo "[DRY RUN] Checking Azure for user: $user"
+            # return 0  # Assume user exists for safe dry-run
+            # TODO: fix this. dry run should talk to azure. 
+            az ad user show --id "$user" >/dev/null 2>&1
         else
             # Real Azure Entra ID check
             az ad user show --id "$user" >/dev/null 2>&1
