@@ -1,4 +1,7 @@
-.PHONY: test dry-run run stop clean
+.PHONY: test dry-run install upgrade uninstall clean-test clean
+
+HELM_RELEASE = namespace-cleaner
+HELM_CHART_PATH = helm/namespace-cleaner
 
 # Local testing (no Azure, real execution)
 test:
@@ -12,21 +15,27 @@ test:
 # Dry-run mode (no changes)
 dry-run:
 	@echo "Executing production dry-run (real Azure checks)"
-	kubectl apply -f configmap.yaml -f azure-creds.yaml
-	DRY_RUN=true TEST_MODE=false ./namespace-cleaner.sh
+	helm upgrade --install $(HELM_RELEASE) $(HELM_CHART_PATH) --set dryRun=true
+	@echo "Dry-run complete. Check logs for details."
 
-# Deploy to production
-run:
-	@echo "Deploying namespace cleaner..."
-	kubectl apply -f configmap.yaml -f azure-creds.yaml -f cronjob.yaml
+# Install to production
+install:
+	@echo "Installing namespace cleaner via Helm..."
+	helm upgrade --install $(HELM_RELEASE) $(HELM_CHART_PATH)
 	@echo "\nCronJob scheduled. Next run:"
 	kubectl get cronjob namespace-cleaner -o jsonpath='{.status.nextScheduleTime}'
 
-# Stop production deployment
-stop:
-	@echo "Stopping namespace cleaner..."
-	kubectl delete -f cronjob.yaml --ignore-not-found
-	@echo "Retaining configmap/azure-creds for audit purposes."
+# Upgrade deployment
+upgrade:
+	@echo "Upgrading namespace cleaner..."
+	helm upgrade $(HELM_RELEASE) $(HELM_CHART_PATH)
+	@echo "Upgrade complete."
+
+# Uninstall deployment
+uninstall:
+	@echo "Uninstalling namespace cleaner..."
+	helm uninstall $(HELM_RELEASE)
+	@echo "Cleanup complete."
 
 # Clean test artifacts
 clean-test:
@@ -34,6 +43,5 @@ clean-test:
 	kubectl delete -f tests/test-config.yaml -f tests/test-cases.yaml --ignore-not-found
 
 # Full cleanup (including production)
-clean: clean-test
-	@echo "Cleaning production resources..."
-	kubectl delete -f configmap.yaml -f azure-creds.yaml -f cronjob.yaml --ignore-not-found
+clean: clean-test uninstall
+	@echo "All namespace-cleaner resources removed."

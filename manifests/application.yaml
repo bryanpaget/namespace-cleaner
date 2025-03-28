@@ -6,12 +6,15 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/bryanpaget/namespace-cleaner.git
-    path: manifests
+    repoURL: "https://github.com/bryanpaget/namespace-cleaner.git"
     targetRevision: main
+    path: helm/namespace-cleaner
+    helm:
+      valueFiles:
+        - values.yaml
   destination:
     server: https://kubernetes.default.svc
-    namespace: kubeflow
+    namespace: namespace-cleaner
   syncPolicy:
     automated:
       prune: true
