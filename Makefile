@@ -12,20 +12,20 @@ test:
 # Dry-run mode (no changes)
 dry-run:
 	@echo "Executing production dry-run (real Azure checks)"
-	kubectl apply -f configmap.yaml -f azure-creds.yaml
+	kubectl apply -f manifests/configmap.yaml -f manifests/azure-creds.yaml
 	DRY_RUN=true TEST_MODE=false ./namespace-cleaner.sh
 
 # Deploy to production
 run:
 	@echo "Deploying namespace cleaner..."
-	kubectl apply -f configmap.yaml -f azure-creds.yaml -f cronjob.yaml
+	kubectl apply -f manifests/configmap.yaml -f manifests/azure-creds.yaml -f manifests/cronjob.yaml
 	@echo "\nCronJob scheduled. Next run:"
 	kubectl get cronjob namespace-cleaner -o jsonpath='{.status.nextScheduleTime}'
 
 # Stop production deployment
 stop:
 	@echo "Stopping namespace cleaner..."
-	kubectl delete -f cronjob.yaml --ignore-not-found
+	kubectl delete -f manifests/cronjob.yaml --ignore-not-found
 	@echo "Retaining configmap/azure-creds for audit purposes."
 
 # Clean test artifacts
@@ -36,4 +36,4 @@ clean-test:
 # Full cleanup (including production)
 clean: clean-test
 	@echo "Cleaning production resources..."
-	kubectl delete -f configmap.yaml -f azure-creds.yaml -f cronjob.yaml --ignore-not-found
+	kubectl delete -f manifests/configmap.yaml -f manifests/azure-creds.yaml -f manifests/cronjob.yaml --ignore-not-found
