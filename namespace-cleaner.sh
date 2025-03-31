@@ -119,11 +119,7 @@ valid_domain() {
 # Execute kubectl commands with dry-run support
 # @param $@: Full kubectl command with arguments
 kubectl_dryrun() {
-    if [ "$DRY_RUN" = "true" ]; then
-        echo "[DRY RUN] Would execute: kubectl $@"
-    else
-        kubectl "$@"
-    fi
+    echo "[DRY RUN] Would execute: kubectl $@"
 }
 
 # Calculate deletion date based on grace period
