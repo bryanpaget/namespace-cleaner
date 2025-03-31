@@ -73,17 +73,13 @@ load_config() {
         fi
 
         # Azure authentication
-        if [ "$DRY_RUN" = "false" ]; then
-            # TODO: do I need a service principle?
-            # TODO: what is a service principle?
-            # TODO: Remove dry run wrapper, we can always use az login, maybe
-            if ! az login --service-principal \
-                -u "$AZURE_CLIENT_ID" \
-                -p "$AZURE_CLIENT_SECRET" \
-                --tenant "$AZURE_TENANT_ID" >/dev/null; then
-                echo "Error: Azure authentication failed - verify credentials in secret.yaml"
-                exit 1
-            fi
+        # TODO: do I need a service principle?
+        if ! az login --service-principal \
+            -u "$AZURE_CLIENT_ID" \
+            -p "$AZURE_CLIENT_SECRET" \
+            --tenant "$AZURE_TENANT_ID" >/dev/null; then
+            echo "Error: Azure authentication failed - verify credentials in secret.yaml"
+            exit 1
         fi
     fi
 }
@@ -102,18 +98,8 @@ user_exists() {
         # Check against mock user list from ConfigMap
         echo "$TEST_USERS" | grep -qFx "$user"
     else
-        if [ "$DRY_RUN" = "true" ]; then
-            # Simulate user check in dry-run mode
-            echo "[DRY RUN] Checking Azure for user: $user"
-            # return 0  # Assume user exists for safe dry-run
-            az ad user show --id "$user" >/dev/null 2>&1
-        else
-            # Real Azure Entra ID check
-            az ad user show --id "$user" >/dev/null 2>&1
-        fi
+        az ad user show --id "$user" >/dev/null 2>&1
     fi
-    # TODO: I want to check Azure in dry run mode.
-    # TODO: 
 }
 
 # Validate if an email domain is in the allowlist
@@ -169,7 +155,6 @@ process_namespaces() {
                 echo "Marking $ns for deletion on $grace_date"
                 kubectl_dryrun label ns "$ns" "namespace-cleaner/delete-at=$grace_date"
             fi
-        # TODO: add Dry run logging to "Marking $ns..."
         else
             echo "Invalid domain in $ns: $owner_email (allowed: ${ALLOWED_DOMAINS})"
         fi
