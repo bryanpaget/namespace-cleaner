@@ -63,30 +63,23 @@ load_config() {
     else
         echo "PRODUCTION MODE: Loading cluster configuration"
 
-        # Production configuration file validation
-        if [ ! -f "/etc/cleaner-config/config.env" ]; then
-            echo "Error: Production configuration file not found at /etc/cleaner-config/config.env"
-            exit 1
-        fi
+        # Load configuration directly into environment
+        eval "$(kubectl get configmap namespace-cleaner-config -o jsonpath='{.data.config\.env}')"
 
-        # Source production environment variables
-        . /etc/cleaner-config/config.env
-
-        # Validate production configuration
+        # Validate essential configuration parameters
         if [ -z "${ALLOWED_DOMAINS:-}" ] || [ -z "${GRACE_PERIOD:-}" ]; then
-            echo "Error: Invalid production configuration - check config.env"
+            echo "Error: Invalid test configuration - verify ConfigMap contents"
             exit 1
         fi
 
-        # Azure authentication (skip in dry-run mode)
-        if [ "$DRY_RUN" = "false" ]; then
-            if ! az login --service-principal \
-                -u "$AZURE_CLIENT_ID" \
-                -p "$AZURE_CLIENT_SECRET" \
-                --tenant "$AZURE_TENANT_ID" >/dev/null; then
-                echo "Error: Azure authentication failed - verify credentials in secret.yaml"
-                exit 1
-            fi
+        # Azure authentication
+        # TODO: do I need a service principle?
+        if ! az login --service-principal \
+            -u "$AZURE_CLIENT_ID" \
+            -p "$AZURE_CLIENT_SECRET" \
+            --tenant "$AZURE_TENANT_ID" >/dev/null; then
+            echo "Error: Azure authentication failed - verify credentials in secret.yaml"
+            exit 1
         fi
     fi
 }
@@ -105,14 +98,7 @@ user_exists() {
         # Check against mock user list from ConfigMap
         echo "$TEST_USERS" | grep -qFx "$user"
     else
-        if [ "$DRY_RUN" = "true" ]; then
-            # Simulate user check in dry-run mode
-            echo "[DRY RUN] Would check Azure for user: $user"
-            return 0  # Assume user exists for safe dry-run
-        else
-            # Real Azure Entra ID check
-            az ad user show --id "$user" >/dev/null 2>&1
-        fi
+        az ad user show --id "$user" >/dev/null 2>&1
     fi
 }
 
