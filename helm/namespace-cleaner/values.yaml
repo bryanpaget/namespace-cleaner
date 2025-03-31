@@ -1,0 +1,15 @@
+namespaceCleaner:
+  schedule: "0 2 * * *"  # Run daily at 2 AM UTC
+  dryRun: false
+  allowedDomains: "yourdomain.com"
+  gracePeriod: "30d"
+
+image:
+  repository: bryanpaget/namespace-cleaner
+  tag: latest
+  pullPolicy: IfNotPresent
+
+azure:
+  tenantId: ""
+  clientId: ""
+  clientSecret: ""
