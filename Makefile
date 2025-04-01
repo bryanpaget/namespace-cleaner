@@ -9,18 +9,20 @@ test:
 	@kubectl get ns -l app.kubernetes.io/part-of=kubeflow-profile
 	@make clean-test
 
-# Dry-run mode (no changes)
-dry-run:
-	@echo "Executing production dry-run (real Azure checks)"
-	kubectl apply -f manifests/configmap.yaml -f manifests/azure-creds.yaml
-	DRY_RUN=true TEST_MODE=false ./namespace-cleaner.sh
-
 # Deploy to production
 run:
 	@echo "Deploying namespace cleaner..."
+	kubectl create configmap namespace-cleaner-script --from-file=namespace-cleaner.sh -n <namespace> --dry-run=client -o yaml | kubectl apply -f -
 	kubectl apply -f manifests/configmap.yaml -f manifests/azure-creds.yaml -f manifests/cronjob.yaml
 	@echo "\nCronJob scheduled. Next run:"
 	kubectl get cronjob namespace-cleaner -o jsonpath='{.status.nextScheduleTime}'
+
+# Dry-run mode (no changes)
+dry-run:
+	@echo "Executing production dry-run (real Azure checks)"
+	kubectl create configmap namespace-cleaner-script --from-file=namespace-cleaner.sh -n <namespace> --dry-run=client -o yaml | kubectl apply -f -
+	kubectl apply -f manifests/configmap.yaml -f manifests/azure-creds.yaml
+	DRY_RUN=true TEST_MODE=false ./namespace-cleaner.sh
 
 # Stop production deployment
 stop:
@@ -36,4 +38,5 @@ clean-test:
 # Full cleanup (including production)
 clean: clean-test
 	@echo "Cleaning production resources..."
+	kubectl delete configmap namespace-cleaner-script -n <namespace> --ignore-not-found
 	kubectl delete -f manifests/configmap.yaml -f manifests/azure-creds.yaml -f manifests/cronjob.yaml --ignore-not-found
