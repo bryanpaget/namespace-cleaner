@@ -2,15 +2,16 @@ apiVersion: batch/v1
 kind: CronJob
 metadata:
   name: namespace-cleaner
+  namespace: bryan-paget
 spec:
-  schedule: "0 0 * * *"
+  schedule: "*/5 * * * *"
   jobTemplate:
     spec:
       template:
         spec:
           containers:
             - name: cleaner
-              image: mcr.microsoft.com/azure-cli
+              image: artifactory.cloud.statcan.ca/docker-mcr/azure-cli
               command: ["/bin/sh", "-c"]
               args:
                 - apk add jq && ./namespace-cleaner.sh

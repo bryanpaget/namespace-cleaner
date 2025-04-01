@@ -74,13 +74,13 @@ load_config() {
 
         # Azure authentication
         # TODO: do I need a service principle?
-        if ! az login --service-principal \
-            -u "$AZURE_CLIENT_ID" \
-            -p "$AZURE_CLIENT_SECRET" \
-            --tenant "$AZURE_TENANT_ID" >/dev/null; then
-            echo "Error: Azure authentication failed - verify credentials in secret.yaml"
-            exit 1
-        fi
+        # if ! az login \
+        #     -u "$AZURE_CLIENT_ID" \
+        #     -p "$AZURE_CLIENT_SECRET" \
+        #     --tenant "$AZURE_TENANT_ID" >/dev/null; then
+        #     echo "Error: Azure authentication failed - verify credentials in secret.yaml"
+        #     exit 1
+        # fi
     fi
 }
 
@@ -119,11 +119,7 @@ valid_domain() {
 # Execute kubectl commands with dry-run support
 # @param $@: Full kubectl command with arguments
 kubectl_dryrun() {
-    if [ "$DRY_RUN" = "true" ]; then
-        echo "[DRY RUN] Would execute: kubectl $@"
-    else
-        kubectl "$@"
-    fi
+    echo "[DRY RUN] Would execute: kubectl $@"
 }
 
 # Calculate deletion date based on grace period
