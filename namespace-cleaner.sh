@@ -119,7 +119,11 @@ valid_domain() {
 # Execute kubectl commands with dry-run support
 # @param $@: Full kubectl command with arguments
 kubectl_dryrun() {
-    echo "[DRY RUN] Would execute: kubectl $@"
+    if [ "$DRY_RUN" = "true" ]; then
+        echo "[DRY RUN] Would execute: kubectl $@"
+    else
+        kubectl "$@"
+    fi
 }
 
 # Calculate deletion date based on grace period
@@ -148,7 +152,9 @@ process_namespaces() {
 
         if valid_domain "$owner_email"; then
             if ! user_exists "$owner_email"; then
-                echo "Marking $ns for deletion on $grace_date"
+                if ! $DRY_RUN; then
+                    echo "Marking $ns for deletion on $grace_date"
+                fi
                 kubectl_dryrun label ns "$ns" "namespace-cleaner/delete-at=$grace_date"
             fi
         else

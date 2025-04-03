@@ -2,26 +2,19 @@ apiVersion: batch/v1
 kind: CronJob
 metadata:
   name: namespace-cleaner
-  namespace: bryan-paget
 spec:
-  schedule: "*/5 * * * *"
+  schedule: "0 0 * * *"
   jobTemplate:
     spec:
       template:
         spec:
           containers:
-            - name: cleaner
-              image: artifactory.cloud.statcan.ca/docker-mcr/azure-cli
-              command: ["/bin/sh", "-c"]
-              args:
-                - apk add jq && ./namespace-cleaner.sh
+            - name: namespace-cleaner-container
+              image: k8scc01covidacr/bryan-azure-cli:latest
               envFrom:
                 - secretRef:
                     name: azure-creds
               volumeMounts:
-                - name: script
-                  mountPath: /namespace-cleaner.sh
-                  subPath: namespace-cleaner.sh
                 - name: config
                   mountPath: /etc/cleaner-config
               resources:
@@ -29,10 +22,6 @@ spec:
                   memory: "256Mi"
                   cpu: "500m"
           volumes:
-            - name: script
-              configMap:
-                name: namespace-cleaner-script
-                defaultMode: 0744 # Makes script executable
             - name: config
               configMap:
                 name: namespace-cleaner-config
