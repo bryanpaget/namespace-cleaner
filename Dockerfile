@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/azure-cli
+FROM mcr.microsoft.com/azure-cli:latest
 
 # Install kubectl using Azure CLI
 RUN az aks install-cli
