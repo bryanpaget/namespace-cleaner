@@ -11,4 +11,4 @@ COPY namespace-cleaner.sh /namespace-cleaner.sh
 RUN chmod +x /namespace-cleaner.sh
 
 # Entry point to run the script
-ENTRYPOINT ["/bin/sh", "-c", "/namespace-cleaner.sh"]
+ENTRYPOINT ["/bin/bash", "-c", "/namespace-cleaner.sh"]
