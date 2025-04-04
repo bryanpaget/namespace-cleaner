@@ -12,7 +12,6 @@ test:
 # Deploy to production
 run:
 	@echo "Deploying namespace cleaner..."
-	kubectl create configmap namespace-cleaner-script --from-file=./namespace-cleaner.sh
 	kubectl apply -f manifests/configmap.yaml -f manifests/azure-creds.yaml -f manifests/cronjob.yaml
 	@echo "\nCronJob scheduled. Next run:"
 	kubectl get cronjob namespace-cleaner -o jsonpath='{.status.nextScheduleTime}'
@@ -20,7 +19,6 @@ run:
 # Dry-run mode (no changes)
 dry-run:
 	@echo "Executing production dry-run (real Azure checks)"
-	kubectl create configmap namespace-cleaner-script --from-file=namespace-cleaner.sh
 	kubectl apply -f manifests/configmap.yaml 
 	kubectl apply -f manifests/azure-creds.yaml
 	DRY_RUN=true TEST_MODE=false ./namespace-cleaner.sh
