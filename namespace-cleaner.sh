@@ -43,7 +43,7 @@ load_config() {
 
         # Validate test configuration resources
         for cm in namespace-cleaner-config namespace-cleaner-test-users; do
-            if ! kubectl get configmap $cm >/dev/null; then
+            if ! kubectl get configmap "$cm" >/dev/null; then
                 echo "Error: Missing required test ConfigMap '$cm'"
                 exit 1
             fi
@@ -73,7 +73,6 @@ load_config() {
         fi
 
         # Azure authentication
-        # TODO: do I need a service principle?
         if ! az login --service-principal \
             -u "$AZURE_CLIENT_ID" \
             -p "$AZURE_CLIENT_SECRET" \
@@ -92,7 +91,7 @@ load_config() {
 # @param $1: User email address to check
 # @return: 0 if user exists, 1 otherwise
 user_exists() {
-    local user="$1"
+    user="$1"
 
     if [ "$TEST_MODE" = "true" ]; then
         # Check against mock user list from ConfigMap
@@ -106,8 +105,8 @@ user_exists() {
 # @param $1: Email address to validate
 # @return: 0 if domain is allowed, 1 otherwise
 valid_domain() {
-    local email="$1"
-    local domain=$(echo "$email" | cut -d@ -f2)
+    email="$1"
+    domain=$(echo "$email" | cut -d@ -f2)
 
     # Use pattern matching with comma-separated allowlist
     case ",${ALLOWED_DOMAINS}," in
@@ -120,7 +119,7 @@ valid_domain() {
 # @param $@: Full kubectl command with arguments
 kubectl_dryrun() {
     if [ "$DRY_RUN" = "true" ]; then
-        echo "[DRY RUN] Would execute: kubectl $@"
+        echo "[DRY RUN] Would execute: kubectl $*"
     else
         kubectl "$@"
     fi
@@ -142,7 +141,7 @@ get_grace_date() {
 # ---------------------------
 process_namespaces() {
     # Phase 1: Identify new namespaces needing evaluation
-    local grace_date=$(get_grace_date)
+    grace_date=$(get_grace_date)
 
     # Find namespaces with Kubeflow label but no deletion marker
     kubectl get ns -l 'app.kubernetes.io/part-of=kubeflow-profile,!namespace-cleaner/delete-at' \
@@ -152,7 +151,6 @@ process_namespaces() {
 
         if valid_domain "$owner_email"; then
             if ! user_exists "$owner_email"; then
-                echo "Marking $ns for deletion on $grace_date"
                 kubectl_dryrun label ns "$ns" "namespace-cleaner/delete-at=$grace_date"
             fi
         else
@@ -161,7 +159,7 @@ process_namespaces() {
     done
 
     # Phase 2: Process namespaces with expired deletion markers
-    local today=$(date -u +%Y-%m-%d)
+    today=$(date -u +%Y-%m-%d)
 
     # Retrieve namespaces with deletion markers
     kubectl get ns -l 'namespace-cleaner/delete-at' \
@@ -172,7 +170,7 @@ process_namespaces() {
         label_date=$(echo "$line" | cut -f2 | cut -d'T' -f1)  # Handle ISO timestamp
 
         # Compare dates using string comparison (works for YYYY-MM-DD format)
-        if [ "$today" \> "$label_date" ]; then
+        if [ "$(date -d "$today" +%s)" -gt "$(date -d "$label_date" +%s)" ]; then
             owner_email=$(kubectl get ns "$ns" -o jsonpath='{.metadata.annotations.owner}')
 
             if ! user_exists "$owner_email"; then
