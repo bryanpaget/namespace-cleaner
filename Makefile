@@ -37,5 +37,4 @@ clean-test:
 # Full cleanup (including production)
 clean: clean-test
 	@echo "Cleaning production resources..."
-	kubectl delete configmap namespace-cleaner-script --ignore-not-found
 	kubectl delete -f manifests/configmap.yaml -f manifests/azure-creds.yaml -f manifests/cronjob.yaml --ignore-not-found
