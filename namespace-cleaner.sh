@@ -170,7 +170,7 @@ process_namespaces() {
         label_date=$(echo "$line" | cut -f2 | cut -d'T' -f1)  # Handle ISO timestamp
 
         # Compare dates using string comparison (works for YYYY-MM-DD format)
-        if [ "$today" "\" "$label_date" ]; then
+        if [ "$today" \> "$label_date" ]; then
             owner_email=$(kubectl get ns "$ns" -o jsonpath='{.metadata.annotations.owner}')
 
             if ! user_exists "$owner_email"; then
