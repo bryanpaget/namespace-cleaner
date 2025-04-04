@@ -74,13 +74,13 @@ load_config() {
 
         # Azure authentication
         # TODO: do I need a service principle?
-        # if ! az login \
-        #     -u "$AZURE_CLIENT_ID" \
-        #     -p "$AZURE_CLIENT_SECRET" \
-        #     --tenant "$AZURE_TENANT_ID" >/dev/null; then
-        #     echo "Error: Azure authentication failed - verify credentials in secret.yaml"
-        #     exit 1
-        # fi
+        if ! az login \
+            -u "$AZURE_CLIENT_ID" \
+            -p "$AZURE_CLIENT_SECRET" \
+            --tenant "$AZURE_TENANT_ID" >/dev/null; then
+            echo "Error: Azure authentication failed - verify credentials in secret.yaml"
+            exit 1
+        fi
     fi
 }
 
@@ -152,9 +152,6 @@ process_namespaces() {
 
         if valid_domain "$owner_email"; then
             if ! user_exists "$owner_email"; then
-                if ! $DRY_RUN; then
-                    echo "Marking $ns for deletion on $grace_date"
-                fi
                 kubectl_dryrun label ns "$ns" "namespace-cleaner/delete-at=$grace_date"
             fi
         else
